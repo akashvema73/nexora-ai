@@ -16,6 +16,14 @@ export default function Home() {
   const [mode, setMode] = useState("coding");
   const [loading, setLoading] = useState(false);
   const [menu, setMenu] = useState(false);
+
+const [toolsOpen, setToolsOpen] = useState(false);
+const [selectedFile, setSelectedFile] = useState(null);
+const fileInputRef = useRef(null);
+
+
+
+  
   const bottomRef = useRef(null);
   const taRef = useRef(null);
 
@@ -180,6 +188,97 @@ export default function Home() {
 
         <footer className="composer">
           <div className="box">
+
+
+
+
+<button
+  type="button"
+  className="plus-btn"
+  aria-label="Open tools menu"
+  aria-expanded={toolsOpen}
+  onClick={() => setToolsOpen((open) => !open)}
+>
+  +
+</button>
+
+{toolsOpen && (
+  <div className="tools-menu">
+    <button
+      type="button"
+      onClick={() => {
+        setToolsOpen(false);
+        fileInputRef.current?.click();
+      }}
+    >
+      📎 Upload photos & files
+    </button>
+
+    <button
+      type="button"
+      onClick={() => {
+        setToolsOpen(false);
+        alert("Web Search ko agle step mein API se connect karenge.");
+      }}
+    >
+      🌐 Web Search
+    </button>
+
+    <button
+      type="button"
+      onClick={() => {
+        setToolsOpen(false);
+        alert("Image Generation ko agle step mein connect karenge.");
+      }}
+    >
+      🎨 Create Image
+    </button>
+
+    <button
+      type="button"
+      onClick={() => {
+        setToolsOpen(false);
+        alert("Voice feature agle step mein add karenge.");
+      }}
+    >
+      🎙️ Voice
+    </button>
+
+    <button
+      type="button"
+      onClick={() => {
+        setToolsOpen(false);
+        alert("Advanced Thinking ko baad mein integrate karenge.");
+      }}
+    >
+      🧠 Thinking
+    </button>
+  </div>
+)}
+
+<input
+  ref={fileInputRef}
+  type="file"
+  accept="image/*,.pdf,.txt,.doc,.docx"
+  hidden
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+    if (file) setSelectedFile(file);
+    e.target.value = "";
+  }}
+/>
+
+
+
+
+
+
+
+
+
+
+
+            
             <textarea ref={taRef} rows={1} value={input} onChange={onInput} onKeyDown={onKey}
               placeholder={mode === "study" ? "Koi topic ya sawaal likho..." : mode === "coding" ? "Code ya error yahan paste karo..." : "Apna sawaal likho..."} />
             <button className="send" onClick={() => send()} disabled={loading || !input.trim()} aria-label="Send">Send</button>
