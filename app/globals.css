@@ -88,3 +88,86 @@ input:focus,textarea:focus{outline:none;border-color:var(--acc)}
   .burger{display:block}.chips{grid-template-columns:1fr}.top{padding:10px 14px}.feed{padding:16px 14px}
   .del{opacity:1}
 }
+
+
+
+
+.box {
+  position: relative;
+}
+
+.plus-btn {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 27px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+.plus-btn:hover {
+  border-color: var(--acc);
+}
+
+.tools-menu {
+  position: absolute;
+  left: 8px;
+  bottom: calc(100% + 12px);
+  width: min(280px, calc(100vw - 32px));
+  padding: 8px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 12px 36px #0008;
+  z-index: 30;
+}
+
+.tools-menu button {
+  width: 100%;
+  padding: 11px 12px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  color: var(--text);
+}
+
+.tools-menu button:hover {
+  background: var(--panel);
+}
+
+@media (max-width: 480px) {
+  .composer {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .box {
+    gap: 6px;
+  }
+
+  .send {
+    padding: 9px 11px;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
