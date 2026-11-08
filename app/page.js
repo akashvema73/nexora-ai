@@ -3,30 +3,37 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { MODES } from "@/lib/prompts";
-import Markdown from "@/components/Markdown";
+import Sidebar from "@/components/Sidebar";
+import ModeSelector from "@/components/ModeSelector";
+import MessageBubble from "@/components/MessageBubble";
+import Composer from "@/components/Composer";
 
 export default function Home() {
   const router = useRouter();
+
+  // Auth
   const [session, setSession] = useState(null);
   const [ready, setReady] = useState(false);
+
+  // Conversations
   const [convs, setConvs] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
+
+  // UI state
   const [mode, setMode] = useState("coding");
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [menu, setMenu] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [webSearch, setWebSearch] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
 
-const [toolsOpen, setToolsOpen] = useState(false);
-const [selectedFile, setSelectedFile] = useState(null);
-const fileInputRef = useRef(null);
-
-
-
-  
+  // Scroll
   const bottomRef = useRef(null);
-  const taRef = useRef(null);
+  const feedRef = useRef(null);
+  const [userScrolled, setUserScrolled] = useState(false);
 
+  // ── Auth ─────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) router.replace("/login");
@@ -39,20 +46,53 @@ const fileInputRef = useRef(null);
     return () => sub.subscription.unsubscribe();
   }, [router]);
 
+  // ── Conversations ─────────────────────────────────────
   const loadConvs = useCallback(async () => {
-    const { data } = await supabase.from("conversations").select("id,title,mode,updated_at").order("updated_at", { ascending: false });
+    const { data } = await supabase
+      .from("conversations")
+      .select("id,title,mode,updated_at")
+      .order("updated_at", { ascending: false });
     setConvs(data || []);
   }, []);
 
   useEffect(() => { if (ready) loadConvs(); }, [ready, loadConvs]);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages]);
 
+  // ── Smart Scroll ──────────────────────────────────────
+  useEffect(() => {
+    const el = feedRef.current;
+    if (!el) return;
+    const handler = () => {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      setUserScrolled(!nearBottom);
+    };
+    el.addEventListener("scroll", handler, { passive: true });
+    return () => el.removeEventListener("scroll", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!userScrolled) {
+      if (loading) {
+        if (feedRef.current) {
+          feedRef.current.scrollTop = feedRef.current.scrollHeight;
+        }
+      } else {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      }
+    }
+  }, [messages, userScrolled, loading]);
+
+  // ── Open conversation ────────────────────────────────
   async function openConv(c) {
     if (loading) return;
     setActiveId(c.id);
     setMode(c.mode in MODES ? c.mode : "coding");
-    setMenu(false);
-    const { data } = await supabase.from("messages").select("id,role,content").eq("conversation_id", c.id).order("created_at");
+    setSidebarOpen(false);
+    setUserScrolled(false);
+    const { data } = await supabase
+      .from("messages")
+      .select("id,role,content")
+      .eq("conversation_id", c.id)
+      .order("created_at");
     setMessages(data || []);
   }
 
@@ -60,37 +100,62 @@ const fileInputRef = useRef(null);
     if (loading) return;
     setActiveId(null);
     setMessages([]);
-    setMenu(false);
+    setSidebarOpen(false);
+    setWebSearch(false);
+    setSelectedFile(null);
+    setUserScrolled(false);
   }
 
-  async function removeConv(e, id) {
-    e.stopPropagation();
-    if (!confirm("Ye chat delete karni hai?")) return;
+  async function deleteConv(id) {
+    if (!confirm("Delete this conversation?")) return;
     await supabase.from("conversations").delete().eq("id", id);
     if (id === activeId) newChat();
     loadConvs();
   }
 
+  // ── Send message ─────────────────────────────────────
   async function send(textArg) {
     const text = (textArg ?? input).trim();
     if (!text || loading) return;
+
     setInput("");
-    if (taRef.current) taRef.current.style.height = "auto";
+    setUserScrolled(false);
     setLoading(true);
-    setMessages((m) => [...m, { role: "user", content: text }, { role: "assistant", content: "" }]);
+
+    // Optimistically add messages
+    setMessages((m) => [
+      ...m,
+      { role: "user", content: text },
+      { role: "assistant", content: "" },
+    ]);
+
     const setLast = (content) =>
-      setMessages((m) => { const c = [...m]; c[c.length - 1] = { role: "assistant", content }; return c; });
+      setMessages((m) => {
+        const copy = [...m];
+        copy[copy.length - 1] = { role: "assistant", content };
+        return copy;
+      });
 
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
+
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ message: text, conversationId: activeId, mode }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          message: text,
+          conversationId: activeId,
+          mode,
+          webSearch,
+        }),
       });
+
       if (!res.ok) {
-        let msg = "Kuch galat hua.";
+        let msg = "Something went wrong.";
         try { msg = (await res.json()).error || msg; } catch {}
         setLast("**Error:** " + msg);
       } else {
@@ -98,194 +163,219 @@ const fileInputRef = useRef(null);
         const reader = res.body.getReader();
         const dec = new TextDecoder();
         let acc = "";
+        let rafId = null;
+        let pending = false;
+
+        const scheduleUpdate = () => {
+          if (pending) return;
+          pending = true;
+          rafId = requestAnimationFrame(() => {
+            pending = false;
+            setLast(acc);
+            if (!userScrolled && feedRef.current) {
+              feedRef.current.scrollTop = feedRef.current.scrollHeight;
+            }
+          });
+        };
+
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
           acc += dec.decode(value, { stream: true });
-          setLast(acc);
+          scheduleUpdate();
         }
-        if (newId && newId !== activeId) setActiveId(newId);
+
+        if (rafId) cancelAnimationFrame(rafId);
+        setLast(acc);
+        if (!userScrolled && feedRef.current) {
+          feedRef.current.scrollTop = feedRef.current.scrollHeight;
+        }
+
+        if (newId && newId !== activeId) {
+          setActiveId(newId);
+        }
         loadConvs();
       }
     } catch {
-      setLast("**Error:** Network problem hai. Internet check karke dobara try karo.");
+      setLast("**Error:** Network error. Please check your connection and try again.");
     } finally {
       setLoading(false);
+      setSelectedFile(null);
     }
   }
 
-  function onKey(e) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
-  }
-  function onInput(e) {
-    setInput(e.target.value);
-    e.target.style.height = "auto";
-    e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+  // ── Regenerate last response ─────────────────────────
+  async function regenerate() {
+    if (loading || messages.length < 2) return;
+    // Find last user message
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    if (!lastUser) return;
+    // Remove last assistant message and re-send
+    setMessages((m) => m.slice(0, -1));
+    await send(lastUser.content);
   }
 
-  if (!ready) return <div className="boot">Nexora AI load ho raha hai...</div>;
-  const m = MODES[mode];
+  // ── Mode change ───────────────────────────────────────
+  function handleModeChange(newMode) {
+    if (messages.length > 0) {
+      if (!confirm("Changing mode will start a new conversation. Continue?")) return;
+      newChat();
+    }
+    setMode(newMode);
+  }
+
+  // ── Loading screen ────────────────────────────────────
+  if (!ready) {
+    return (
+      <div className="boot">
+        <div className="boot-spinner" />
+        <span>Loading Nexora AI…</span>
+      </div>
+    );
+  }
+
+  const userEmail = session?.user?.email || "";
+  const userInitials = userEmail ? userEmail.slice(0, 2).toUpperCase() : "U";
+  const currentMode = MODES[mode];
 
   return (
     <div className="app">
-      <aside className={"side" + (menu ? " open" : "")}>
-        <div className="logo"><img className="logomark" src="/logo.jpg" alt="" />Nexora AI</div>
-        <button className="primary" onClick={newChat}>+ New chat</button>
-        <div className="convs">
-          {convs.length === 0 && <p className="muted small">Abhi koi chat nahi hai.</p>}
-          {convs.map((c) => (
-            <div key={c.id} className={"conv" + (c.id === activeId ? " active" : "")} onClick={() => openConv(c)}>
-              <span className={"dot " + c.mode} />
-              <span className="ctitle">{c.title}</span>
-              <button className="del" aria-label="Delete chat" onClick={(e) => removeConv(e, c.id)}>×</button>
-            </div>
-          ))}
-        </div>
-        <div className="user">
-          <span className="email">{session?.user?.email}</span>
-          <button className="link" onClick={() => supabase.auth.signOut()}>Logout</button>
-        </div>
-      </aside>
-      {menu && <div className="scrim" onClick={() => setMenu(false)} />}
+      {/* Sidebar */}
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        convs={convs}
+        activeId={activeId}
+        onNewChat={newChat}
+        onOpenConv={openConv}
+        onDeleteConv={deleteConv}
+        session={session}
+        onSignOut={() => supabase.auth.signOut()}
+        loading={loading}
+      />
 
-      <main className="main">
-        <header className="top">
-          <button className="burger" aria-label="Menu" onClick={() => setMenu(true)}>☰</button>
-          <div className="tabs" role="tablist">
-            {Object.entries(MODES).map(([k, v]) => (
-              <button key={k} role="tab" aria-selected={mode === k} className={"tab " + k + (mode === k ? " on" : "")}
-                disabled={loading || (messages.length > 0 && mode !== k)} onClick={() => setMode(k)}>
-                {v.label}
-              </button>
-            ))}
-          </div>
+      {/* Main */}
+      <div className="main">
+        {/* Header */}
+        <header className="header">
+          <button
+            className="header-burger"
+            aria-label="Open sidebar"
+            onClick={() => setSidebarOpen(true)}
+          >
+            ☰
+          </button>
+
+          <ModeSelector
+            mode={mode}
+            onChange={handleModeChange}
+            disabled={loading}
+          />
+
+          <div className="header-spacer" />
+
+          {/* Optional header actions could go here */}
         </header>
 
-        <section className="feed">
+        {/* Chat feed */}
+        <section
+          className="feed"
+          ref={feedRef}
+          aria-label="Conversation"
+        >
           {messages.length === 0 ? (
-            <div className="empty">
-              <h2>{m.hint}</h2>
-              <p className="muted">Kuch bhi poocho ya neeche se shuru karo.</p>
-              <div className="chips">
-                {m.suggestions.map((s) => (<button key={s} className="chip" onClick={() => send(s)}>{s}</button>))}
+            /* Welcome screen */
+            <div className="welcome">
+              <img
+                className="welcome-logo"
+                src="/nexora-logo.png"
+                alt="Nexora AI"
+                onError={(e) => { e.target.src = "/logo.jpg"; }}
+              />
+              <h1>What can I help you with?</h1>
+              <p className="welcome-sub">
+                Choose a suggestion below or type anything to get started
+              </p>
+              <div className="suggestions-grid">
+                {currentMode.suggestions.map((s) => (
+                  <button
+                    key={s.text}
+                    className="suggestion-card"
+                    onClick={() => send(s.text)}
+                    disabled={loading}
+                  >
+                    <span className="suggestion-card-icon">{s.icon}</span>
+                    <span className="suggestion-card-text">{s.text}</span>
+                    <span className="suggestion-card-hint">{s.hint}</span>
+                  </button>
+                ))}
               </div>
             </div>
           ) : (
-            <div className="thread">
-              {messages.map((msg, i) => (
-                <div key={msg.id || i} className={"row " + msg.role}>
-                  <div className="bubble">
-                    {msg.role === "assistant"
-                      ? (msg.content ? <Markdown text={msg.content} /> : <span className="typing"><i /><i /><i /></span>)
-                      : <p className="plain">{msg.content}</p>}
-                  </div>
-                </div>
-              ))}
-              <div ref={bottomRef} />
+            /* Message thread */
+            <div className="feed-inner">
+              {messages.map((msg, i) => {
+                const isLast = i === messages.length - 1;
+                return (
+                  <MessageBubble
+                    key={msg.id || i}
+                    msg={msg}
+                    userInitials={userInitials}
+                    onRegenerate={isLast && msg.role === "assistant" ? regenerate : null}
+                    isLast={isLast}
+                    isLoading={loading}
+                  />
+                );
+              })}
+              <div ref={bottomRef} style={{ height: 1 }} />
             </div>
           )}
         </section>
 
-        <footer className="composer">
-          <div className="box">
+        {/* Scroll to bottom fab (shows when user has scrolled up) */}
+        {userScrolled && messages.length > 0 && (
+          <button
+            onClick={() => {
+              setUserScrolled(false);
+              bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+            }}
+            style={{
+              position: "fixed",
+              bottom: 110,
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "var(--panel2)",
+              border: "1px solid var(--line2)",
+              borderRadius: "var(--radius-pill)",
+              padding: "7px 16px",
+              fontSize: 13,
+              color: "var(--text2)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              boxShadow: "var(--shadow)",
+              zIndex: 10,
+              cursor: "pointer",
+              transition: "background 0.15s",
+            }}
+          >
+            ↓ Scroll to bottom
+          </button>
+        )}
 
-
-
-
-<button
-  type="button"
-  className="plus-btn"
-  aria-label="Open tools menu"
-  aria-expanded={toolsOpen}
-  onClick={() => setToolsOpen((open) => !open)}
->
-  +
-</button>
-
-{toolsOpen && (
-  <div className="tools-menu">
-    <button
-      type="button"
-      onClick={() => {
-        setToolsOpen(false);
-        fileInputRef.current?.click();
-      }}
-    >
-      📎 Upload photos & files
-    </button>
-
-    <button
-      type="button"
-      onClick={() => {
-        setToolsOpen(false);
-        alert("Web Search ko agle step mein API se connect karenge.");
-      }}
-    >
-      🌐 Web Search
-    </button>
-
-    <button
-      type="button"
-      onClick={() => {
-        setToolsOpen(false);
-        alert("Image Generation ko agle step mein connect karenge.");
-      }}
-    >
-      🎨 Create Image
-    </button>
-
-    <button
-      type="button"
-      onClick={() => {
-        setToolsOpen(false);
-        alert("Voice feature agle step mein add karenge.");
-      }}
-    >
-      🎙️ Voice
-    </button>
-
-    <button
-      type="button"
-      onClick={() => {
-        setToolsOpen(false);
-        alert("Advanced Thinking ko baad mein integrate karenge.");
-      }}
-    >
-      🧠 Thinking
-    </button>
-  </div>
-)}
-
-<input
-  ref={fileInputRef}
-  type="file"
-  accept="image/*,.pdf,.txt,.doc,.docx"
-  hidden
-  onChange={(e) => {
-    const file = e.target.files?.[0];
-    if (file) setSelectedFile(file);
-    e.target.value = "";
-  }}
-/>
-
-
-
-
-
-
-
-
-
-
-
-            
-            <textarea ref={taRef} rows={1} value={input} onChange={onInput} onKeyDown={onKey}
-              placeholder={mode === "study" ? "Koi topic ya sawaal likho..." : mode === "coding" ? "Code ya error yahan paste karo..." : "Apna sawaal likho..."} />
-            <button className="send" onClick={() => send()} disabled={loading || !input.trim()} aria-label="Send">Send</button>
-          </div>
-          <p className="muted small">Enter se send, Shift+Enter se nayi line. AI galti kar sakta hai, zaroori cheezein check karo.</p>
-        </footer>
-      </main>
+        {/* Composer */}
+        <Composer
+          input={input}
+          setInput={setInput}
+          onSend={send}
+          loading={loading}
+          mode={mode}
+          webSearch={webSearch}
+          setWebSearch={setWebSearch}
+          selectedFile={selectedFile}
+          setSelectedFile={setSelectedFile}
+        />
+      </div>
     </div>
   );
 }
