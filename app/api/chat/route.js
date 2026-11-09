@@ -219,12 +219,14 @@ export async function POST(req) {
     }
 
     // Non-blocking user message insert (runs concurrently without delaying LLM stream start)
-    const saveUserMsgPromise = sb.from("messages").insert({
-      conversation_id: conversationId,
-      user_id: user.id,
-      role: "user",
-      content: text,
-    });
+    const saveUserMsgPromise = Promise.resolve(
+      sb.from("messages").insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: "user",
+        content: text,
+      })
+    );
 
     // Append current prompt directly to history in memory
     history.push({ role: "user", content: text });
@@ -242,7 +244,9 @@ export async function POST(req) {
           }
           if (full) {
             // Await user message insert before inserting assistant message to guarantee timeline order
-            await saveUserMsgPromise.catch(() => {});
+            try {
+              await saveUserMsgPromise;
+            } catch {}
             await Promise.all([
               sb.from("messages").insert({
                 conversation_id: conversationId,
