@@ -1,7 +1,14 @@
 "use client";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { isSpeechRecognitionSupported, createSpeechRecognizer } from "@/lib/voice";
 
 const TOOLS = [
+  {
+    id: "voice",
+    icon: "🎙️",
+    label: "Voice Assistant",
+    desc: "Speak your prompt naturally",
+  },
   {
     id: "file",
     icon: "📎",
@@ -36,9 +43,11 @@ export default function Composer({
   setSelectedFile,
 }) {
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const taRef = useRef(null);
   const fileRef = useRef(null);
   const toolsRef = useRef(null);
+  const recognizerRef = useRef(null);
 
   // Auto-resize textarea
   function handleInput(e) {
@@ -50,11 +59,12 @@ export default function Composer({
   function handleKey(e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      onSend();
+      handleSend();
     }
   }
 
   function handleSend() {
+    if (isListening) stopListening();
     onSend();
     if (taRef.current) taRef.current.style.height = "auto";
   }
@@ -66,6 +76,65 @@ export default function Composer({
     setToolsOpen(false);
   }
 
+  // Speech Recognition (Speech-to-Text)
+  const stopListening = useCallback(() => {
+    if (recognizerRef.current) {
+      try {
+        recognizerRef.current.stop();
+      } catch {}
+      recognizerRef.current = null;
+    }
+    setIsListening(false);
+  }, []);
+
+  const startListening = useCallback(() => {
+    if (!isSpeechRecognitionSupported()) {
+      alert("Aapke browser me Voice Input support nahi hai. Kripya Google Chrome ya Microsoft Edge browser use karein.");
+      return;
+    }
+
+    stopListening();
+
+    try {
+      const recognizer = createSpeechRecognizer({
+        lang: "hi-IN", // Supports Hindi and English natural speech
+        onStart: () => {
+          setIsListening(true);
+        },
+        onResult: ({ combined }) => {
+          if (combined) {
+            setInput(combined);
+            if (taRef.current) {
+              taRef.current.style.height = "auto";
+              taRef.current.style.height = Math.min(taRef.current.scrollHeight, 200) + "px";
+            }
+          }
+        },
+        onError: (err) => {
+          console.warn("Speech error:", err);
+          setIsListening(false);
+        },
+        onEnd: () => {
+          setIsListening(false);
+        },
+      });
+
+      recognizerRef.current = recognizer;
+      recognizer.start();
+    } catch (e) {
+      alert("Microphone start nahi ho paya: " + (e?.message || "Permission issue"));
+      setIsListening(false);
+    }
+  }, [stopListening, setInput]);
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
   // Close tools popup on outside click
   useEffect(() => {
     if (!toolsOpen) return;
@@ -76,11 +145,19 @@ export default function Composer({
     return () => document.removeEventListener("mousedown", handler);
   }, [toolsOpen]);
 
+  // Clean up mic on unmount
+  useEffect(() => {
+    return () => {
+      stopListening();
+    };
+  }, [stopListening]);
+
   const getPlaceholder = () => {
+    if (isListening) return "🎙️ Listening... Aap jo bol rahe hain wo screen par likha ja raha hai...";
     if (mode === "coding") return "Paste your code or describe a programming task…";
     if (mode === "study")  return "Ask me to explain a concept, quiz you, or make notes…";
     if (mode === "creative") return "Tell me what you want to write, brainstorm, or create…";
-    return "Ask anything…";
+    return "Ask anything or click the microphone to speak…";
   };
 
   const canSend = !loading && input.trim().length > 0;
@@ -89,8 +166,22 @@ export default function Composer({
     <footer className="composer-wrap">
       <div className="composer-inner">
         {/* Chips row */}
-        {(selectedFile || webSearch) && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        {(selectedFile || webSearch || isListening) && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>
+            {isListening && (
+              <div className="voice-pill">
+                <span className="voice-pill-dot" />
+                <span>Listening... Bolte rahiye...</span>
+                <button
+                  className="file-chip-remove"
+                  onClick={stopListening}
+                  aria-label="Stop listening"
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            )}
             {selectedFile && (
               <div className="file-chip">
                 <span className="file-chip-icon">
@@ -101,6 +192,7 @@ export default function Composer({
                   className="file-chip-remove"
                   onClick={() => setSelectedFile(null)}
                   aria-label="Remove file"
+                  type="button"
                 >
                   ×
                 </button>
@@ -114,6 +206,7 @@ export default function Composer({
                   className="web-search-pill-remove"
                   onClick={() => setWebSearch(false)}
                   aria-label="Disable web search"
+                  type="button"
                 >
                   ×
                 </button>
@@ -144,8 +237,12 @@ export default function Composer({
                     className="tool-item"
                     type="button"
                     onClick={() => {
-                      if (tool.id === "file") { fileRef.current?.click(); }
-                      else if (tool.id === "websearch") {
+                      if (tool.id === "voice") {
+                        toggleListening();
+                        setToolsOpen(false);
+                      } else if (tool.id === "file") {
+                        fileRef.current?.click();
+                      } else if (tool.id === "websearch") {
                         setWebSearch((v) => !v);
                         setToolsOpen(false);
                       } else if (tool.comingSoon) {
@@ -159,6 +256,9 @@ export default function Composer({
                       <span className="tool-item-label">{tool.label}</span>
                       <span className="tool-item-desc">{tool.desc}</span>
                     </span>
+                    {tool.id === "voice" && isListening && (
+                      <span className="tool-item-badge on">Rec</span>
+                    )}
                     {tool.toggle && (
                       <span className={`tool-item-badge${webSearch ? " on" : ""}`}>
                         {tool.id === "websearch" && webSearch ? "ON" : ""}
@@ -194,6 +294,18 @@ export default function Composer({
             disabled={loading}
           />
 
+          {/* Voice Input (Microphone) button */}
+          <button
+            className={`composer-mic-btn${isListening ? " listening" : ""}`}
+            onClick={toggleListening}
+            disabled={loading}
+            title={isListening ? "Stop listening" : "Click to speak (Voice assistant)"}
+            type="button"
+            aria-label={isListening ? "Stop voice input" : "Start voice input"}
+          >
+            {isListening ? "⏹" : "🎙️"}
+          </button>
+
           {/* Send button */}
           <button
             className={`composer-send-btn${loading ? " loading" : ""}`}
@@ -208,9 +320,9 @@ export default function Composer({
 
         {/* Disclaimer */}
         <p className="composer-hint">
-          Press <kbd style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: 4, padding: "0 5px", fontSize: 11 }}>Enter</kbd> to send,{" "}
+          Click <kbd style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: 4, padding: "0 5px", fontSize: 11 }}>🎙️</kbd> to speak,{" "}
+          <kbd style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: 4, padding: "0 5px", fontSize: 11 }}>Enter</kbd> to send,{" "}
           <kbd style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: 4, padding: "0 5px", fontSize: 11 }}>Shift+Enter</kbd> for new line.
-          Nexora AI can make mistakes — verify important information.
         </p>
       </div>
     </footer>

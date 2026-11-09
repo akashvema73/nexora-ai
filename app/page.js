@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import ModeSelector from "@/components/ModeSelector";
 import MessageBubble from "@/components/MessageBubble";
 import Composer from "@/components/Composer";
+import { speakText, stopSpeech } from "@/lib/voice";
 
 export default function Home() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
 
   // Scroll
@@ -84,6 +86,7 @@ export default function Home() {
   // ── Open conversation ────────────────────────────────
   async function openConv(c) {
     if (loading) return;
+    stopSpeech();
     setActiveId(c.id);
     setMode(c.mode in MODES ? c.mode : "coding");
     setSidebarOpen(false);
@@ -98,6 +101,7 @@ export default function Home() {
 
   function newChat() {
     if (loading) return;
+    stopSpeech();
     setActiveId(null);
     setMessages([]);
     setSidebarOpen(false);
@@ -191,6 +195,11 @@ export default function Home() {
           feedRef.current.scrollTop = feedRef.current.scrollHeight;
         }
 
+        // Voice Assistant: Auto-read response if Voice Mode is active
+        if (voiceMode && acc) {
+          speakText(acc);
+        }
+
         if (newId && newId !== activeId) {
           setActiveId(newId);
         }
@@ -274,7 +283,18 @@ export default function Home() {
 
           <div className="header-spacer" />
 
-          {/* Optional header actions could go here */}
+          {/* Voice Assistant Auto-Speak Toggle */}
+          <button
+            className={`voice-toggle-btn${voiceMode ? " on" : ""}`}
+            onClick={() => {
+              if (voiceMode) stopSpeech();
+              setVoiceMode((v) => !v);
+            }}
+            title={voiceMode ? "Auto Voice Readout: ON (Click to mute)" : "Auto Voice Readout: OFF (Click to turn on)"}
+            type="button"
+          >
+            {voiceMode ? "🔊 Voice: ON" : "🔇 Voice: OFF"}
+          </button>
         </header>
 
         {/* Chat feed */}

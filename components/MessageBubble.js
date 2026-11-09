@@ -1,6 +1,7 @@
 "use client";
-import React, { useState, useCallback, memo } from "react";
+import React, { useState, useCallback, useEffect, memo } from "react";
 import Markdown from "@/components/Markdown";
+import { speakText, stopSpeech } from "@/lib/voice";
 
 function copyText(text) {
   if (navigator.clipboard) return navigator.clipboard.writeText(text);
@@ -15,6 +16,14 @@ function copyText(text) {
 function MessageBubble({ msg, userInitials, onRegenerate, isLast, isLoading }) {
   const [copied, setCopied] = useState(false);
   const [liked, setLiked] = useState(null); // null | 'up' | 'down'
+  const [speaking, setSpeaking] = useState(false);
+
+  // Stop speaking when component unmounts
+  useEffect(() => {
+    return () => {
+      if (speaking) stopSpeech();
+    };
+  }, [speaking]);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -23,6 +32,19 @@ function MessageBubble({ msg, userInitials, onRegenerate, isLast, isLoading }) {
       setTimeout(() => setCopied(false), 2000);
     } catch {}
   }, [msg.content]);
+
+  const handleToggleSpeak = useCallback(() => {
+    if (speaking) {
+      stopSpeech();
+      setSpeaking(false);
+    } else {
+      speakText(msg.content, {
+        onStart: () => setSpeaking(true),
+        onEnd: () => setSpeaking(false),
+        onError: () => setSpeaking(false),
+      });
+    }
+  }, [speaking, msg.content]);
 
   const isUser = msg.role === "user";
   const isEmpty = !msg.content;
@@ -53,6 +75,13 @@ function MessageBubble({ msg, userInitials, onRegenerate, isLast, isLoading }) {
             {/* Action bar — only for AI messages with content */}
             {!isEmpty && (
               <div className="msg-actions">
+                <button
+                  className={`msg-action-btn${speaking ? " active-voice" : ""}`}
+                  onClick={handleToggleSpeak}
+                  title={speaking ? "Stop reading" : "Read aloud (Listen)"}
+                >
+                  {speaking ? "⏹ Stop" : "🔊 Listen"}
+                </button>
                 <button
                   className={`msg-action-btn${liked === "up" ? " liked" : ""}`}
                   onClick={() => setLiked((v) => (v === "up" ? null : "up"))}
