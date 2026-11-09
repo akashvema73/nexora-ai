@@ -31,21 +31,37 @@ export default function Login() {
     setNotice("");
     setGoogleBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/`,
+          skipBrowserRedirect: true,
         },
       });
+
       if (error) throw error;
-      // Redirect handled by Supabase OAuth flow
-    } catch (err) {
-      const msg = err.message || "";
-      if (msg.includes("provider is not enabled") || msg.includes("Unsupported provider")) {
-        setError("Google Login abhi Supabase me enable nahi hai. Supabase Dashboard -> Authentication -> Providers me Google enable karein, ya neeche diye gaye Email option se login karein.");
-      } else {
-        setError(msg || "Google sign-in failed. Please try again.");
+      if (!data?.url) throw new Error("Google auth URL generate nahi hua.");
+
+      // Check if Supabase has Google provider enabled before navigating
+      const probe = await fetch(data.url, { method: "GET" }).catch(() => null);
+      if (probe && !probe.ok) {
+        let msg = "";
+        try {
+          const j = await probe.json();
+          msg = j.msg || j.error_description || "";
+        } catch {}
+
+        if (probe.status === 400 || msg.includes("provider is not enabled")) {
+          throw new Error(
+            "Google Provider abhi aapke Supabase Dashboard me OFF hai. Supabase -> Authentication -> Providers me jakar Google ON karein, ya neeche diye gaye Email se turant login karein."
+          );
+        }
       }
+
+      // Provider is ready, navigate to Google login
+      window.location.href = data.url;
+    } catch (err) {
+      setError(err.message || "Google sign-in failed. Please try again.");
       setGoogleBusy(false);
     }
   }
