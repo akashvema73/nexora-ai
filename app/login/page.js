@@ -40,7 +40,12 @@ export default function Login() {
       if (error) throw error;
       // Redirect handled by Supabase OAuth flow
     } catch (err) {
-      setError(err.message || "Google sign-in failed. Please try again.");
+      const msg = err.message || "";
+      if (msg.includes("provider is not enabled") || msg.includes("Unsupported provider")) {
+        setError("Google Login abhi Supabase me enable nahi hai. Supabase Dashboard -> Authentication -> Providers me Google enable karein, ya neeche diye gaye Email option se login karein.");
+      } else {
+        setError(msg || "Google sign-in failed. Please try again.");
+      }
       setGoogleBusy(false);
     }
   }
