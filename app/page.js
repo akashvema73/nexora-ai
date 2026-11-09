@@ -8,6 +8,8 @@ import ModeSelector from "@/components/ModeSelector";
 import MessageBubble from "@/components/MessageBubble";
 import Composer from "@/components/Composer";
 import { speakText, stopSpeech } from "@/lib/voice";
+import ShareModal from "@/components/ShareModal";
+import { ScheduledModal, LibraryModal, PluginsModal, ExploreModal } from "@/components/AppModals";
 
 export default function Home() {
   const router = useRouter();
@@ -29,6 +31,18 @@ export default function Home() {
   const [webSearch, setWebSearch] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [activeModal, setActiveModal] = useState(null); // 'share' | 'scheduled' | 'library' | 'plugins' | 'explore'
+  const [shareTargetConv, setShareTargetConv] = useState(null);
+
+  const openShare = (targetConv) => {
+    const conv = targetConv || convs.find((c) => c.id === activeId) || {
+      id: activeId,
+      title: messages[0]?.content?.slice(0, 50) || "Nexora AI Chat",
+      mode,
+    };
+    setShareTargetConv(conv);
+    setActiveModal("share");
+  };
 
   // Scroll
   const bottomRef = useRef(null);
@@ -258,6 +272,8 @@ export default function Home() {
         onNewChat={newChat}
         onOpenConv={openConv}
         onDeleteConv={deleteConv}
+        onShareConv={openShare}
+        onOpenModal={(modal) => setActiveModal(modal)}
         session={session}
         onSignOut={() => supabase.auth.signOut()}
         loading={loading}
@@ -282,6 +298,17 @@ export default function Home() {
           />
 
           <div className="header-spacer" />
+
+          {/* Share Button */}
+          <button
+            className="header-share-btn"
+            onClick={() => openShare()}
+            disabled={messages.length === 0}
+            title="Share conversation link"
+            type="button"
+          >
+            <span>🔗</span> Share
+          </button>
 
           {/* Voice Assistant Auto-Speak Toggle */}
           <button
@@ -396,6 +423,40 @@ export default function Home() {
           setSelectedFile={setSelectedFile}
         />
       </div>
+
+      {/* Modals: Share, Scheduled, Library, Plugins, Explore */}
+      <ShareModal
+        open={activeModal === "share"}
+        onClose={() => setActiveModal(null)}
+        conversation={shareTargetConv}
+        messages={messages}
+      />
+
+      <ScheduledModal
+        open={activeModal === "scheduled"}
+        onClose={() => setActiveModal(null)}
+      />
+
+      <LibraryModal
+        open={activeModal === "library"}
+        onClose={() => setActiveModal(null)}
+        onUsePrompt={(prompt) => setInput(prompt)}
+      />
+
+      <PluginsModal
+        open={activeModal === "plugins"}
+        onClose={() => setActiveModal(null)}
+        webSearch={webSearch}
+        setWebSearch={setWebSearch}
+        voiceMode={voiceMode}
+        setVoiceMode={setVoiceMode}
+      />
+
+      <ExploreModal
+        open={activeModal === "explore"}
+        onClose={() => setActiveModal(null)}
+        onSelectMode={(newMode) => handleModeChange(newMode)}
+      />
     </div>
   );
 }

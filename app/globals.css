@@ -1377,6 +1377,285 @@ a:hover { text-decoration: underline; }
   box-shadow: 0 0 12px rgba(6, 182, 212, 0.2);
 }
 
+/* ── ChatGPT Style Sidebar Icons & Nav Menu ─────────── */
+.sidebar-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+.sidebar-icon-btn:hover {
+  background: var(--panel2);
+  color: var(--text);
+}
+
+.sidebar-nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+}
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text2);
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.sidebar-nav-item:hover {
+  background: var(--panel2);
+  color: var(--text);
+}
+.sidebar-nav-item.primary {
+  background: var(--panel2);
+  border: 1px solid var(--line2);
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.sidebar-nav-item.primary:hover {
+  background: var(--panel3);
+  border-color: var(--purple);
+}
+.sidebar-nav-icon {
+  font-size: 16px;
+  width: 20px;
+  display: grid;
+  place-items: center;
+}
+.sidebar-nav-text {
+  flex: 1;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 8px 12px;
+}
+
+/* Projects Folder Section */
+.sidebar-projects-section {
+  padding: 4px 10px;
+}
+.sidebar-projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+.sidebar-projects-header:hover {
+  color: var(--text);
+}
+.sidebar-mini-btn {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--muted);
+  transition: all 0.15s;
+}
+.sidebar-mini-btn:hover {
+  background: var(--panel3);
+  color: var(--text);
+}
+.sidebar-projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0 4px 14px;
+}
+.sidebar-project-item {
+  padding: 5px 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sidebar-project-item:hover {
+  background: var(--panel2);
+  color: var(--text);
+}
+.sidebar-project-item.active {
+  background: rgba(124, 58, 237, 0.15);
+  color: var(--purple);
+  font-weight: 500;
+}
+
+/* Header Share Button */
+.header-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--panel2);
+  border: 1px solid var(--line2);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.header-share-btn:hover {
+  background: var(--panel3);
+  border-color: var(--purple);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.2);
+}
+
+/* ── Modern Modal Overlay & Cards ───────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+.modal-card {
+  width: 100%;
+  max-width: 540px;
+  background: var(--panel);
+  border: 1px solid var(--line2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 24px;
+  animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.modal-close-btn {
+  font-size: 24px;
+  color: var(--muted);
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  transition: all 0.15s;
+}
+.modal-close-btn:hover {
+  background: var(--panel2);
+  color: var(--text);
+}
+
+/* Share Modal Specifics */
+.share-preview-box {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.share-preview-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.share-preview-meta {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.share-link-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.share-link-input {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+.share-link-input:focus {
+  border-color: var(--purple);
+}
+.share-copy-btn {
+  padding: 10px 18px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.share-copy-btn.ok {
+  background: #10B981 !important;
+  color: #fff !important;
+}
+
+.share-social-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.share-social-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text2);
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.share-social-btn:hover {
+  background: var(--panel3);
+  color: #fff;
+  border-color: var(--muted2);
+}
+.share-social-btn.whatsapp:hover {
+  border-color: #25D366;
+  color: #25D366;
+}
+.share-social-btn.twitter:hover {
+  border-color: #1DA1F2;
+  color: #1DA1F2;
+}
+.share-social-btn.linkedin:hover {
+  border-color: #0A66C2;
+  color: #0A66C2;
+}
+
 
 
 

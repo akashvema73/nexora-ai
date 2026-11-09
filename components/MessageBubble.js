@@ -15,6 +15,7 @@ function copyText(text) {
 
 function MessageBubble({ msg, userInitials, onRegenerate, isLast, isLoading }) {
   const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
   const [liked, setLiked] = useState(null); // null | 'up' | 'down'
   const [speaking, setSpeaking] = useState(false);
 
@@ -30,6 +31,21 @@ function MessageBubble({ msg, userInitials, onRegenerate, isLast, isLoading }) {
       await copyText(msg.content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }, [msg.content]);
+
+  const handleShareMessage = useCallback(async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Nexora AI Answer",
+          text: msg.content,
+        });
+      } else {
+        await copyText(msg.content);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }
     } catch {}
   }, [msg.content]);
 
@@ -102,6 +118,13 @@ function MessageBubble({ msg, userInitials, onRegenerate, isLast, isLoading }) {
                   title="Copy message"
                 >
                   {copied ? "✓ Copied" : "📋 Copy"}
+                </button>
+                <button
+                  className="msg-action-btn"
+                  onClick={handleShareMessage}
+                  title="Share response"
+                >
+                  {shared ? "✓ Shared!" : "🔗 Share"}
                 </button>
                 {isLast && onRegenerate && !isLoading && (
                   <button
